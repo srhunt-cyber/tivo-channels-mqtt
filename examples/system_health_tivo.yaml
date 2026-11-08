@@ -1,0 +1,382 @@
+views:
+- title: TiVo Health
+  icon: mdi:television
+  cards:
+  - type: entities
+    title: TiVo Channels Bridge
+    show_header_toggle: false
+    entities:
+    - entity: binary_sensor.tivo_channels_bridge_connection
+      name: Bridge connection
+      state_color: true
+    - entity: sensor.tivo_channels_bridge_uptime
+      name: Bridge uptime
+  - type: vertical-stack
+    cards:
+    - type: custom:mushroom-template-card
+      entity: sensor.kitchen_tivo_mqtt_playback
+      primary: Kitchen TiVo
+      secondary: '{% set p = ''sensor.kitchen_tivo_mqtt_'' %}
+
+        {{ states(p ~ ''display'') }}
+
+        {% set free = states(p ~ ''free_mib'') %}
+
+        {{ (free ~ '' MiB free'') if is_number(free) else ''Storage unavailable'' }} · {{ states(p ~ ''recovery_status'')
+        }}'
+      icon: mdi:television
+      icon_color: '{% set p = ''sensor.kitchen_tivo_mqtt_'' %}
+
+        {% if states(p ~ ''playback'') in [''unknown'',''unavailable''] %}red
+
+        {% elif state_attr(p ~ ''playback'', ''low_storage'') %}orange
+
+        {% elif is_state(p ~ ''playback'', ''playing'') %}green
+
+        {% elif is_state(p ~ ''playback'', ''paused'') %}amber
+
+        {% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: binary_sensor.kitchen_tivo_mqtt_api
+        name: Channels connection
+        state_color: true
+      - entity: binary_sensor.kitchen_tivo_mqtt_adb
+        name: Android / ADB connection
+        state_color: true
+      - entity: sensor.kitchen_tivo_mqtt_free_mib
+        name: Free storage
+      - entity: sensor.kitchen_tivo_mqtt_recovery_status
+        name: Automatic recovery
+    - type: custom:mushroom-template-card
+      entity: sensor.kitchen_tivo_mqtt_command_status
+      primary: Maintenance result
+      secondary: '{% set e = ''sensor.kitchen_tivo_mqtt_command_status'' %}
+
+        {{ states(e) }}
+
+        {% set when = state_attr(e, ''updated_at'') %}
+
+        {% if when %}{{ as_timestamp(when) | timestamp_custom(''%b %d, %I:%M:%S %p'', true) }}{% endif %}
+
+        {% set before = state_attr(e, ''before_mib'') %}
+
+        {% set after = state_attr(e, ''after_mib'') %}
+
+        {% if before is number and after is number %}Storage: {{ before }} → {{ after }} MiB free{% endif %}'
+      icon: mdi:progress-wrench
+      icon_color: '{% set e = ''sensor.kitchen_tivo_mqtt_command_status'' %}
+
+        {% if state_attr(e, ''busy'') %}orange{% elif state_attr(e, ''outcome'') in [''failed'',''interrupted''] %}red{% elif
+        state_attr(e, ''outcome'') == ''success'' %}green{% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: grid
+      columns: 3
+      square: false
+      cards:
+      - type: button
+        entity: button.kitchen_tivo_mqtt_restart_stream
+        name: 'Hold: Live stream'
+        icon: mdi:play-circle-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.kitchen_tivo_mqtt_restart_stream
+          confirmation:
+            text: Restart the current live stream? This jumps to live and loses the rewind buffer.
+      - type: button
+        entity: button.kitchen_tivo_mqtt_restart_app
+        name: 'Hold: Channels app'
+        icon: mdi:application-cog-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.kitchen_tivo_mqtt_restart_app
+          confirmation:
+            text: Restart Channels? Playback will be interrupted. A known current live channel will return at live. A recording
+              position will not be restored.
+      - type: button
+        entity: button.kitchen_tivo_mqtt_reboot
+        name: 'Hold: Reboot TiVo'
+        icon: mdi:restart
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.kitchen_tivo_mqtt_reboot
+          confirmation:
+            text: Reboot the entire Kitchen TiVo? The screen will go away while Android restarts. This can take several minutes.
+              A known current live channel will return at live; recordings will not be restored.
+  - type: vertical-stack
+    cards:
+    - type: custom:mushroom-template-card
+      entity: sensor.master_tivo_mqtt_playback
+      primary: Master TiVo
+      secondary: '{% set p = ''sensor.master_tivo_mqtt_'' %}
+
+        {{ states(p ~ ''display'') }}
+
+        {% set free = states(p ~ ''free_mib'') %}
+
+        {{ (free ~ '' MiB free'') if is_number(free) else ''Storage unavailable'' }} · {{ states(p ~ ''recovery_status'')
+        }}'
+      icon: mdi:television
+      icon_color: '{% set p = ''sensor.master_tivo_mqtt_'' %}
+
+        {% if states(p ~ ''playback'') in [''unknown'',''unavailable''] %}red
+
+        {% elif state_attr(p ~ ''playback'', ''low_storage'') %}orange
+
+        {% elif is_state(p ~ ''playback'', ''playing'') %}green
+
+        {% elif is_state(p ~ ''playback'', ''paused'') %}amber
+
+        {% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: binary_sensor.master_tivo_mqtt_api
+        name: Channels connection
+        state_color: true
+      - entity: binary_sensor.master_tivo_mqtt_adb
+        name: Android / ADB connection
+        state_color: true
+      - entity: sensor.master_tivo_mqtt_free_mib
+        name: Free storage
+      - entity: sensor.master_tivo_mqtt_recovery_status
+        name: Automatic recovery
+    - type: custom:mushroom-template-card
+      entity: sensor.master_tivo_mqtt_command_status
+      primary: Maintenance result
+      secondary: '{% set e = ''sensor.master_tivo_mqtt_command_status'' %}
+
+        {{ states(e) }}
+
+        {% set when = state_attr(e, ''updated_at'') %}
+
+        {% if when %}{{ as_timestamp(when) | timestamp_custom(''%b %d, %I:%M:%S %p'', true) }}{% endif %}
+
+        {% set before = state_attr(e, ''before_mib'') %}
+
+        {% set after = state_attr(e, ''after_mib'') %}
+
+        {% if before is number and after is number %}Storage: {{ before }} → {{ after }} MiB free{% endif %}'
+      icon: mdi:progress-wrench
+      icon_color: '{% set e = ''sensor.master_tivo_mqtt_command_status'' %}
+
+        {% if state_attr(e, ''busy'') %}orange{% elif state_attr(e, ''outcome'') in [''failed'',''interrupted''] %}red{% elif
+        state_attr(e, ''outcome'') == ''success'' %}green{% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: grid
+      columns: 3
+      square: false
+      cards:
+      - type: button
+        entity: button.master_tivo_mqtt_restart_stream
+        name: 'Hold: Live stream'
+        icon: mdi:play-circle-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.master_tivo_mqtt_restart_stream
+          confirmation:
+            text: Restart the current live stream? This jumps to live and loses the rewind buffer.
+      - type: button
+        entity: button.master_tivo_mqtt_restart_app
+        name: 'Hold: Channels app'
+        icon: mdi:application-cog-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.master_tivo_mqtt_restart_app
+          confirmation:
+            text: Restart Channels? Playback will be interrupted. A known current live channel will return at live. A recording
+              position will not be restored.
+      - type: button
+        entity: button.master_tivo_mqtt_reboot
+        name: 'Hold: Reboot TiVo'
+        icon: mdi:restart
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.master_tivo_mqtt_reboot
+          confirmation:
+            text: Reboot the entire Master TiVo? The screen will go away while Android restarts. This can take several minutes.
+              A known current live channel will return at live; recordings will not be restored.
+  - type: vertical-stack
+    cards:
+    - type: custom:mushroom-template-card
+      entity: sensor.florence_tivo_mqtt_playback
+      primary: Florence TiVo
+      secondary: '{% set p = ''sensor.florence_tivo_mqtt_'' %}
+
+        {{ states(p ~ ''display'') }}
+
+        {% set free = states(p ~ ''free_mib'') %}
+
+        {{ (free ~ '' MiB free'') if is_number(free) else ''Storage unavailable'' }} · {{ states(p ~ ''recovery_status'')
+        }}'
+      icon: mdi:television
+      icon_color: '{% set p = ''sensor.florence_tivo_mqtt_'' %}
+
+        {% if states(p ~ ''playback'') in [''unknown'',''unavailable''] %}red
+
+        {% elif state_attr(p ~ ''playback'', ''low_storage'') %}orange
+
+        {% elif is_state(p ~ ''playback'', ''playing'') %}green
+
+        {% elif is_state(p ~ ''playback'', ''paused'') %}amber
+
+        {% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: binary_sensor.florence_tivo_mqtt_api
+        name: Channels connection
+        state_color: true
+      - entity: binary_sensor.florence_tivo_mqtt_adb
+        name: Android / ADB connection
+        state_color: true
+      - entity: sensor.florence_tivo_mqtt_free_mib
+        name: Free storage
+      - entity: sensor.florence_tivo_mqtt_recovery_status
+        name: Automatic recovery
+    - type: custom:mushroom-template-card
+      entity: sensor.florence_tivo_mqtt_command_status
+      primary: Maintenance result
+      secondary: '{% set e = ''sensor.florence_tivo_mqtt_command_status'' %}
+
+        {{ states(e) }}
+
+        {% set when = state_attr(e, ''updated_at'') %}
+
+        {% if when %}{{ as_timestamp(when) | timestamp_custom(''%b %d, %I:%M:%S %p'', true) }}{% endif %}
+
+        {% set before = state_attr(e, ''before_mib'') %}
+
+        {% set after = state_attr(e, ''after_mib'') %}
+
+        {% if before is number and after is number %}Storage: {{ before }} → {{ after }} MiB free{% endif %}'
+      icon: mdi:progress-wrench
+      icon_color: '{% set e = ''sensor.florence_tivo_mqtt_command_status'' %}
+
+        {% if state_attr(e, ''busy'') %}orange{% elif state_attr(e, ''outcome'') in [''failed'',''interrupted''] %}red{% elif
+        state_attr(e, ''outcome'') == ''success'' %}green{% else %}grey{% endif %}'
+      multiline_secondary: true
+      tap_action:
+        action: more-info
+      hold_action:
+        action: none
+    - type: grid
+      columns: 3
+      square: false
+      cards:
+      - type: button
+        entity: button.florence_tivo_mqtt_restart_stream
+        name: 'Hold: Live stream'
+        icon: mdi:play-circle-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.florence_tivo_mqtt_restart_stream
+          confirmation:
+            text: Restart the current live stream? This jumps to live and loses the rewind buffer.
+      - type: button
+        entity: button.florence_tivo_mqtt_restart_app
+        name: 'Hold: Channels app'
+        icon: mdi:application-cog-outline
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.florence_tivo_mqtt_restart_app
+          confirmation:
+            text: Restart Channels? Playback will be interrupted. A known current live channel will return at live. A recording
+              position will not be restored.
+      - type: button
+        entity: button.florence_tivo_mqtt_reboot
+        name: 'Hold: Reboot TiVo'
+        icon: mdi:restart
+        show_state: false
+        tap_action:
+          action: none
+        double_tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.florence_tivo_mqtt_reboot
+          confirmation:
+            text: Reboot the entire Florence TiVo? The screen will go away while Android restarts. This can take several minutes.
+              A known current live channel will return at live; recordings will not be restored.

@@ -40,5 +40,8 @@
       "ip": "192.0.2.103",
       "recovery_enabled": false
     }
-  ]
+  ],
+  "manual_control": {
+    "enabled": false
+  }
 }

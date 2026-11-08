@@ -83,7 +83,7 @@ def live_playing(status):
     return status.get('status') == 'playing' and channel(status) is not None
 
 
-def restart_app(ip, room):
+def launch_component(ip):
     # Resolve launch activity BEFORE stopping the app. Never wipe app data.
     installed = adb(ip, 'shell', 'pm', 'list', 'packages').splitlines()
     package = next((p for p in PACKAGES if 'package:' + p in installed), None)
@@ -96,10 +96,16 @@ def restart_app(ip, room):
                   if re.fullmatch(re.escape(package) + r'/[A-Za-z0-9_.$]+', s.strip())]
     if not components:
         raise RuntimeError('Cannot resolve Channels launch activity; no force-stop attempted')
+    return components[-1]
+
+
+def restart_app(ip, room):
+    component = launch_component(ip)
+    package = component.split('/')[0]
     log(room, 'Trying Channels app restart; settings and app data are retained')
     adb(ip, 'shell', 'am', 'force-stop', package)
     time.sleep(1)
-    adb(ip, 'shell', 'am', 'start', '-n', components[-1])
+    adb(ip, 'shell', 'am', 'start', '-n', component)
     for _ in range(8):
         time.sleep(1)
         try:

@@ -3,6 +3,9 @@ import json
 import logging
 import os
 import threading
+import time
+
+from .commands import ACTIONS
 
 from paho.mqtt import client as mqtt
 
@@ -46,6 +49,8 @@ def discovery(config, device, key):
 class Publisher:
     def __init__(self, config):
         self.config = config
+        self.commands = None
+        self.started = time.monotonic()
         self.settings = config['mqtt']
         self.prefix = self.settings['topic_prefix']
         self.rediscover = threading.Event()
@@ -73,6 +78,9 @@ class Publisher:
             return
         self.connected.set()
         client.subscribe(self.settings['discovery_prefix'] + '/status',qos=1)
+        if self.config.get('manual_control', {}).get('enabled', False):
+            for device in self.config['devices']:
+                client.subscribe(self.prefix + '/' + device['id'] + '/command', qos=0)
         self.rediscover.set()
         LOG.info('MQTT connected')
 
@@ -81,8 +89,19 @@ class Publisher:
         LOG.warning('MQTT disconnected: %s',reason)
 
     def on_message(self, client, userdata, message):
-        if message.payload == b'online':
-            self.rediscover.set()
+        if message.topic == self.settings['discovery_prefix'] + '/status':
+            if message.payload == b'online':
+                self.rediscover.set()
+            return
+        if self.commands is not None:
+            for device in self.config['devices']:
+                if message.topic == self.prefix + '/' + device['id'] + '/command':
+                    try:
+                        action = message.payload.decode('ascii')
+                    except UnicodeDecodeError:
+                        return
+                    self.commands.submit(device['id'], action, retained=message.retain)
+                    return
 
     def send(self, topic, payload, retain=False):
         if not self.connected.is_set():
@@ -97,6 +116,7 @@ class Publisher:
         if not self.rediscover.is_set() or not self.connected.is_set():
             return
         self.rediscover.clear()
+        self.announce_controls()
         for device in self.config['devices']:
             # Force a fresh poll before reasserting per-device availability.
             root = self.prefix + '/' + device['id']
@@ -107,10 +127,65 @@ class Publisher:
                 self.send(topic,discovery(self.config,device,key),True)
         self.send(self.prefix + '/availability','online',True)
 
+    def announce_controls(self):
+        bridge_device = {'identifiers': ['tivo_channels_bridge_' + self.settings['client_id']],
+                         'name': 'TiVo Channels Bridge', 'manufacturer': 'tivo-channels-mqtt',
+                         'model': 'MQTT bridge'}
+        base = {'device': bridge_device, 'availability_topic': self.prefix + '/availability'}
+        for key, name, unit in [('uptime', 'Uptime', 's')]:
+            data = dict(base, name=name, unique_id=self.settings['client_id'] + '_' + key,
+                        default_entity_id='sensor.tivo_channels_bridge_' + key,
+                        state_topic=self.prefix + '/bridge', value_template='{{ value_json.' + key + ' }}',
+                        unit_of_measurement=unit, entity_category='diagnostic',
+                        expire_after=max(90, int(self.config['poll_seconds'] * 6)))
+            self.send(self.settings['discovery_prefix'] + '/sensor/' + self.settings['client_id'] + '/' + key + '/config', data, True)
+        online = dict(base, name='Connection', unique_id=self.settings['client_id'] + '_connection',
+                      default_entity_id='binary_sensor.tivo_channels_bridge_connection',
+                      state_topic=self.prefix + '/availability', device_class='connectivity',
+                      payload_on='online', payload_off='offline')
+        online.pop('availability_topic')
+        self.send(self.settings['discovery_prefix'] + '/binary_sensor/' + self.settings['client_id'] + '/connection/config', online, True)
+        for device in self.config['devices']:
+            root = self.prefix + '/' + device['id']
+            common = {'device': discovery(self.config, device, 'playback')['device'],
+                      'availability_topic': self.prefix + '/availability'}
+            for health, label in [('api', 'Channels connection'), ('adb', 'ADB connection')]:
+                value = dict(common, name=label, unique_id='tivo_channels_' + device['id'] + '_' + health,
+                             default_entity_id='binary_sensor.' + device['id'] + '_tivo_mqtt_' + health,
+                             state_topic=root + '/health', value_template='{{ value_json.' + health + ' }}',
+                             payload_on='online', payload_off='offline', device_class='connectivity',
+                             expire_after=max(90, int(self.config['poll_seconds'] * 6)))
+                self.send(self.settings['discovery_prefix'] + '/binary_sensor/tivo_channels_' + device['id'] + '/' + health + '/config', value, True)
+            value = dict(common, name='Last manual command',
+                         unique_id='tivo_channels_' + device['id'] + '_command_status',
+                         default_entity_id='sensor.' + device['id'] + '_tivo_mqtt_command_status',
+                         state_topic=root + '/command_status', json_attributes_topic=root + '/command_status',
+                         value_template='{{ value_json.status }}', icon='mdi:progress-wrench')
+            self.send(self.settings['discovery_prefix'] + '/sensor/tivo_channels_' + device['id'] + '/command_status/config', value, True)
+            for action in ACTIONS:
+                topic = self.settings['discovery_prefix'] + '/button/tivo_channels_' + device['id'] + '/' + action + '/config'
+                self.send(topic, button_discovery(self.config, device, action), True)
+            if self.commands is not None:
+                self.command_status(device, self.commands.results[device['id']])
+
+    def command_status(self, device, result):
+        root = self.prefix + '/' + device['id']
+        self.send(root + '/command_status', result, True)
+        ready = self.config.get('manual_control', {}).get('enabled', False) and not result.get('busy')
+        self.send(root + '/control_availability', 'online' if ready else 'offline', True)
+        if result.get('busy'):
+            self.send(root + '/api_availability', 'offline', True)
+            self.send(root + '/adb_availability', 'offline', True)
+            self.send(root + '/health', {'api': 'offline', 'adb': 'offline'})
+
+    def heartbeat(self):
+        self.send(self.prefix + '/bridge', {'uptime': int(time.monotonic() - self.started)})
+
     def publish(self, device, state, api_ok, adb_ok):
         root = self.prefix + '/' + device['id']
         # Telemetry isn't retained: old values must not look fresh after HA restart.
         self.send(root + '/state',state)
+        self.send(root + '/health', {'api': 'online' if api_ok else 'offline', 'adb': 'online' if adb_ok else 'offline'})
         self.send(root + '/api_availability','online' if api_ok else 'offline',True)
         self.send(root + '/adb_availability','online' if adb_ok else 'offline',True)
 
@@ -127,3 +202,21 @@ class Publisher:
                 pass
         self.client.disconnect()
         self.client.loop_stop()
+
+
+def button_discovery(config, device, action):
+    root = config['mqtt']['topic_prefix'] + '/' + device['id']
+    base = discovery(config, device, 'playback')
+    name, icon = ACTIONS[action]
+    health = 'api' if action == 'restart_stream' else 'adb'
+    return {
+        'name': name, 'icon': icon, 'device': base['device'],
+        'unique_id': 'tivo_channels_' + device['id'] + '_' + action,
+        'default_entity_id': 'button.' + device['id'] + '_tivo_mqtt_' + action,
+        'command_topic': root + '/command', 'payload_press': action,
+        'qos': 0, 'retain': False, 'entity_category': 'config',
+        'availability_mode': 'all',
+        'availability': [{'topic': config['mqtt']['topic_prefix'] + '/availability'},
+                         {'topic': root + '/control_availability'},
+                         {'topic': root + '/' + health + '_availability'}],
+    }

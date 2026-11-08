@@ -25,6 +25,9 @@ def load(path):
     config.setdefault('poll_seconds',15)
     positive(config['poll_seconds'],'poll_seconds')
     config.setdefault('adb_enabled',True)
+    manual = config.setdefault('manual_control', {'enabled': False})
+    if not isinstance(manual, dict) or type(manual.get('enabled', False)) is not bool:
+        raise ValueError('manual_control.enabled must be true or false')
     recovery = config['recovery']
     for name in ('threshold_mib','rearm_mib','low_readings','cooldown_seconds','max_resets_per_hour'):
         positive(recovery[name],'recovery.' + name)

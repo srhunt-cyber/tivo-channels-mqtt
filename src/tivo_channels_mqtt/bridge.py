@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 from . import storage
 from .config import load
+from .commands import Commands
 from .model import normalize
 from .mqtt import Publisher
 
@@ -83,11 +84,23 @@ class RecoveryPolicy:
 
 
 class Poller:
-    def __init__(self, config, publisher):
+    def __init__(self, config, publisher, commands=None):
+        self.commands = commands
         self.config, self.publisher = config,publisher
         self.policies = {d['id']:RecoveryPolicy(d,config['recovery'],config['state_dir']) for d in config['devices']}
 
     def poll(self, device):
+        if self.commands is None:
+            return self._poll(device)
+        lock = self.commands.locks[device['id']]
+        if not lock.acquire(blocking=False):
+            return
+        try:
+            return self._poll(device)
+        finally:
+            lock.release()
+
+    def _poll(self, device):
         ip, name = device['ip'],device['name']
         state, raw = {},{}
         api_ok, adb_ok, free = False,False,None
@@ -113,7 +126,10 @@ class Poller:
         now = time.time()
         ready = policy.observe(raw,free,now)
         enabled = bool(self.config['recovery']['enabled'] and device.get('recovery_enabled',False))
-        if enabled and ready:
+        manual_cooldown = (self.commands is not None and time.monotonic() -
+                           self.commands.last_started.get(device['id'], -1e9) <
+                           self.config['recovery']['cooldown_seconds'])
+        if enabled and ready and not manual_cooldown:
             policy.begin(now)
             try:
                 options = SimpleNamespace(threshold=self.config['recovery']['threshold_mib'],
@@ -183,7 +199,9 @@ def main():
     except BlockingIOError:
         parser.error('Another bridge is using this state directory')
     publisher = Publisher(config)
-    poller = Poller(config,publisher)
+    commands = Commands(config,publisher)
+    publisher.commands = commands
+    poller = Poller(config,publisher,commands)
     stop = threading.Event()
     for sig in (signal.SIGINT,signal.SIGTERM):
         signal.signal(sig,lambda *_:stop.set())
@@ -193,6 +211,7 @@ def main():
             while not stop.is_set():
                 started = time.monotonic()
                 publisher.announce()
+                publisher.heartbeat()
                 futures = [pool.submit(poller.poll,d) for d in config['devices']]
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -201,6 +220,7 @@ def main():
                         LOG.exception('Device poll failed; sensors will expire if updates stop')
                 stop.wait(max(0.1,config['poll_seconds']-(time.monotonic()-started)))
     finally:
+        commands.close()
         publisher.close()
         lock.close()
 

@@ -9,3 +9,5 @@ config.json
 state/
 *.log
 mqtt.env
+config.json.backup-*
+config.json.manual.tmp

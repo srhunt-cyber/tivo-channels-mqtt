@@ -129,7 +129,7 @@ Under `tivo_channels`:
 - `<room>/state`: non-retained JSON telemetry.
 - `<room>/api_availability` and `<room>/adb_availability`: retained per-source availability.
 
-Discovery is retained under `homeassistant/sensor/tivo_channels_<room>/.../config`. Discovery is republished on broker reconnect and Home Assistant's `homeassistant/status=online` birth message. The bridge does not subscribe to control commands. Broker ACLs must allow these publishes and the Home Assistant birth-topic subscription.
+Discovery is retained under `homeassistant/sensor/tivo_channels_<room>/.../config`. Discovery is republished on broker reconnect and Home Assistant's `homeassistant/status=online` birth message. When manual_control.enabled is true, the bridge also subscribes to allowlisted per-device command topics. Broker ACLs must permit discovery/state publishing, the Home Assistant birth-topic subscription, and those command subscriptions. Manual controls default to disabled.
 
 ## Update from GitHub
 
@@ -155,3 +155,11 @@ python3 -m venv .venv
 ```
 
 Tests simulate Channels/ADB/MQTT; they do not replace a long live-session trial with your devices and broker. See `docs/storage-notes.md` for sizing calculations and source links.
+
+## Manual maintenance controls
+
+Optional MQTT buttons now support restarting a live stream, restarting the Channels
+app, and rebooting a TiVo, with verified results and per-device progress. Set
+`manual_control.enabled` to `true` to opt in; automatic recovery remains unchanged.
+See [manual controls](docs/manual-controls.md) and the hold-to-confirm
+[System Health example](examples/system_health_tivo.yaml).
