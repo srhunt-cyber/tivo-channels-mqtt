@@ -1,0 +1,28 @@
+[Unit]
+Description=TiVo Channels MQTT from an existing user checkout
+Wants=network-online.target
+After=network-online.target mosquitto.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@CHECKOUT@
+Environment=HOME=@HOME@
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=ADB_SERVER_SOCKET=tcp:127.0.0.1:5037
+EnvironmentFile=-@CHECKOUT@/mqtt.env
+ExecStart=@CHECKOUT@/.venv/bin/tivo-channels-mqtt --config @CHECKOUT@/config.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@STATE_DIR@ @HOME@/.android
+
+[Install]
+WantedBy=multi-user.target
