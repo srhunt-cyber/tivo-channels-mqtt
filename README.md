@@ -24,6 +24,10 @@ These are **streaming-player** states. They do not establish whether the televis
 
 VM networking must permit LAN access. The example uses non-routable documentation addresses (192.0.2.x); replace them with your device addresses before starting.
 
+## Already running from a home-directory checkout?
+
+Use the [existing-checkout service installer](docs/checkout-service.md) to keep the current user, config and authorized ADB keys. It starts at boot and keeps running after SSH disconnects.
+
 ## Install on Debian/Ubuntu
 
 These commands create a separate service account and directory. Choose another path/account if `/opt/tivo-channels-mqtt` already exists. The committed examples use placeholder addresses and entities. Keep your real configuration and credentials outside the checkout; no MQTT passwords are included.
