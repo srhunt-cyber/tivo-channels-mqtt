@@ -29,13 +29,34 @@ def connect(ip):
         raise RuntimeError('ADB connection failed')
 
 
-def free_mib(ip):
-    output = adb(ip, 'shell', 'df', '-k', '/data')
-    for line in reversed(output.splitlines()):
+def parse_free_mib(output):
+    """Parse one df -k result without assuming its reported mount is /data.
+
+    Android can resolve /data to an underlying or bind-mounted path such as
+    /data/user/0. Find the numeric size/used/available columns before Use%,
+    allowing wrapped filesystem names and mount paths containing whitespace.
+    Reject missing, malformed or ambiguous results rather than guessing.
+    """
+    candidates = []
+    for line in output.splitlines():
         fields = line.split()
-        if len(fields) >= 6 and fields[-1] == '/data' and fields[-3].isdigit():
-            return int(fields[-3]) / 1024
-    raise RuntimeError('Could not parse df -k /data; no action taken')
+        for index, field in enumerate(fields):
+            if index < 3 or not re.fullmatch(r'\d+%', field):
+                continue
+            counts = fields[index-3:index]
+            if not all(re.fullmatch(r'\d+', value) for value in counts):
+                continue
+            total, used, available = map(int, counts)
+            if total > 0 and used <= total and available <= total:
+                candidates.append(available / 1024)
+    if len(candidates) != 1:
+        preview = ' '.join(output.split())[:300]
+        raise RuntimeError('Could not parse df -k /data; no action taken. Output: ' + preview)
+    return candidates[0]
+
+
+def free_mib(ip):
+    return parse_free_mib(adb(ip, 'shell', 'df', '-k', '/data'))
 
 
 def api(ip, path='status', post=False):
