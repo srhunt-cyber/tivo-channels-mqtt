@@ -1,0 +1,80 @@
+# Standalone example. Replace media_player.your_tv / your_android_tv with real entities.
+# Requires custom:button-card (already used by many remote-control dashboards).
+title: TiVo Channels
+views:
+  - title: Kitchen
+    path: kitchen
+    cards:
+      - type: custom:button-card
+        entity: sensor.kitchen_tivo_mqtt_playback
+        variables:
+          tv: media_player.your_tv
+        triggers_update:
+          - sensor.kitchen_tivo_mqtt_playback
+          - media_player.your_tv
+        show_name: true
+        show_label: true
+        name: Kitchen TV
+        icon: mdi:television
+        label: >-
+          [[[ const t=states[variables.tv]?.state;
+              if (['off','standby'].includes(t)) return 'TV off';
+              const power=['on','playing','paused','idle','buffering'].includes(t) ? 'TV on' : 'TV power unknown';
+              if (!entity || ['unknown','unavailable'].includes(entity.state)) return power+' · Playback unavailable';
+              const a=entity.attributes;
+              const state=entity.state==='playing'?'▶ Playing':entity.state==='paused'?'⏸ Paused':'Stopped';
+              return [power,state,a.channel,a.program_title].filter(Boolean).join(' · '); ]]]
+        styles:
+          card:
+            - padding: 12px
+            - border-radius: 14px
+          label:
+            - white-space: normal
+            - line-height: 1.4
+          icon:
+            - color: >-
+                [[[ const off=['off','standby'].includes(states[variables.tv]?.state);
+                    if(off) return 'var(--disabled-text-color)';
+                    return entity?.state==='playing'?'#43a047':entity?.state==='paused'?'#ffb300':'var(--secondary-text-color)'; ]]]
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            entity: sensor.kitchen_tivo_mqtt_playback
+            icon: mdi:play
+            show_name: false
+            variables:
+              tv: media_player.your_tv
+            triggers_update:
+              - sensor.kitchen_tivo_mqtt_playback
+              - media_player.your_tv
+            styles:
+              icon:
+                - color: >-
+                    [[[ return !['off','standby'].includes(states[variables.tv]?.state) && entity?.state==='playing' ? '#43a047':'var(--secondary-text-color)'; ]]]
+            tap_action:
+              action: perform-action
+              perform_action: media_player.media_play
+              target:
+                entity_id: media_player.your_android_tv
+          - type: custom:button-card
+            entity: sensor.kitchen_tivo_mqtt_playback
+            icon: mdi:pause
+            show_name: false
+            variables:
+              tv: media_player.your_tv
+            triggers_update:
+              - sensor.kitchen_tivo_mqtt_playback
+              - media_player.your_tv
+            styles:
+              icon:
+                - color: >-
+                    [[[ return !['off','standby'].includes(states[variables.tv]?.state) && entity?.state==='paused' ? '#ffb300':'var(--secondary-text-color)'; ]]]
+            tap_action:
+              action: perform-action
+              perform_action: media_player.media_pause
+              target:
+                entity_id: media_player.your_android_tv
+      - type: entities
+        entities:
+          - sensor.kitchen_tivo_mqtt_free_mib
+          - sensor.kitchen_tivo_mqtt_recovery_status

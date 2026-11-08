@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tivo-channels-mqtt"
+version = "0.1.0"
+description = "Channels playback and TiVo storage telemetry for MQTT/Home Assistant, with optional buffer recovery"
+requires-python = ">=3.9"
+dependencies = ["paho-mqtt>=2.1,<3"]
+
+[project.scripts]
+tivo-channels-mqtt = "tivo_channels_mqtt.bridge:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

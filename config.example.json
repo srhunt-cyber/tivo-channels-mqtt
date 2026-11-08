@@ -1,0 +1,44 @@
+{
+  "mqtt": {
+    "host": "YOUR_MQTT_BROKER",
+    "port": 1883,
+    "client_id": "tivo_channels_bridge",
+    "username_env": "MQTT_USERNAME",
+    "password_env": "MQTT_PASSWORD",
+    "topic_prefix": "tivo_channels",
+    "discovery_prefix": "homeassistant",
+    "tls": false
+  },
+  "poll_seconds": 15,
+  "state_dir": "./state",
+  "adb_enabled": true,
+  "recovery": {
+    "enabled": false,
+    "restart_fallback": false,
+    "threshold_mib": 600,
+    "rearm_mib": 900,
+    "low_readings": 2,
+    "cooldown_seconds": 300,
+    "max_resets_per_hour": 3
+  },
+  "devices": [
+    {
+      "id": "kitchen",
+      "name": "Kitchen TiVo",
+      "ip": "192.0.2.101",
+      "recovery_enabled": false
+    },
+    {
+      "id": "master",
+      "name": "Bedroom TiVo",
+      "ip": "192.0.2.102",
+      "recovery_enabled": false
+    },
+    {
+      "id": "guest_bedroom",
+      "name": "Guest Bedroom TiVo",
+      "ip": "192.0.2.103",
+      "recovery_enabled": false
+    }
+  ]
+}

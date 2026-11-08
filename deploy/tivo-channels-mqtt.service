@@ -1,0 +1,29 @@
+[Unit]
+Description=TiVo Channels MQTT telemetry and optional storage watchdog
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=tivo-channels
+Group=tivo-channels
+WorkingDirectory=/opt/tivo-channels-mqtt
+EnvironmentFile=-/etc/tivo-channels-mqtt/mqtt.env
+Environment=PYTHONUNBUFFERED=1
+Environment=ADB_SERVER_SOCKET=tcp:127.0.0.1:5038
+Environment=HOME=/var/lib/tivo-channels-mqtt
+ExecStart=/opt/tivo-channels-mqtt/.venv/bin/tivo-channels-mqtt --config /etc/tivo-channels-mqtt/config.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+StateDirectory=tivo-channels-mqtt
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tivo-channels-mqtt
+
+[Install]
+WantedBy=multi-user.target
