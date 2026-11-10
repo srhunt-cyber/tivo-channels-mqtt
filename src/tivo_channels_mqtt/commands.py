@@ -95,7 +95,8 @@ class Commands:
         if not self.config['adb_enabled']:
             return None
         try:
-            return round(storage.free_mib(ip), 1)
+            path = next(d.get('storage_path', '/data') for d in self.devices.values() if d['ip'] == ip)
+            return round(storage.free_mib(ip, path), 1)
         except Exception:
             return None
 

@@ -1,4 +1,6 @@
 """Local JSON configuration. Credentials remain in the host environment."""
+from .storage import validate_storage_path
+
 import ipaddress
 import json
 import math
@@ -46,6 +48,7 @@ def load(path):
     for device in config['devices']:
         if not re.fullmatch(r'[a-z][a-z0-9_]*',device['id']):
             raise ValueError('Device ids must be lowercase letters/numbers/underscores')
+        validate_storage_path(device.get('storage_path', '/data'))
         ipaddress.IPv4Address(device['ip'])
         if device['id'] in ids or device['ip'] in ips:
             raise ValueError('Duplicate device id or address')

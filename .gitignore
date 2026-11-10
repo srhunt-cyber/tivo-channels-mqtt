@@ -11,3 +11,5 @@ state/
 mqtt.env
 config.json.backup-*
 config.json.manual.tmp
+config.json.storage-backup-*
+config.json.storage-tmp

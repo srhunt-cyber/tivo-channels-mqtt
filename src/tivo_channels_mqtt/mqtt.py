@@ -16,6 +16,11 @@ FIELDS = {
     'program_title':('Program','mdi:movie-open','api'),
     'display':('Now playing','mdi:television-play','api'),
     'free_mib':('Free storage','mdi:harddisk','adb'),
+    'internal_free_mib':('Internal free storage','mdi:harddisk','adb'),
+    'usb_free_gib':('USB free storage','mdi:usb-flash-drive','adb'),
+    'usb_total_gib':('USB capacity','mdi:usb-flash-drive','adb'),
+    'usb_used_percent':('USB used','mdi:usb-flash-drive','adb'),
+    'storage_location':('Channels storage','mdi:folder','adb'),
     'recovery_status':('Storage watchdog','mdi:shield-refresh','api'),
 }
 
@@ -39,8 +44,13 @@ def discovery(config, device, key):
     }
     if key == 'playback':
         result['json_attributes_topic'] = root + '/state'
-    if key == 'free_mib':
-        result.update(unit_of_measurement='MiB',state_class='measurement',entity_category='diagnostic')
+    units = {'free_mib': 'MiB', 'internal_free_mib': 'MiB', 'usb_free_gib': 'GiB',
+             'usb_total_gib': 'GiB', 'usb_used_percent': '%'}
+    if key in units:
+        result.update(unit_of_measurement=units[key], state_class='measurement', entity_category='diagnostic')
+        result['value_template'] = '{{ value_json.' + key + ' if value_json.' + key + ' is not none else none }}'
+    if key == 'storage_location':
+        result['entity_category'] = 'diagnostic'
     if key == 'recovery_status':
         result['entity_category'] = 'diagnostic'
     return result

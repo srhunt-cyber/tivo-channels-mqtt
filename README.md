@@ -163,3 +163,9 @@ app, and rebooting a TiVo, with verified results and per-device progress. Set
 `manual_control.enabled` to `true` to opt in; automatic recovery remains unchanged.
 See [manual controls](docs/manual-controls.md) and the hold-to-confirm
 [System Health example](examples/system_health_tivo.yaml).
+
+## Channels on adopted USB storage
+
+See [USB storage monitoring](docs/usb-storage.md) to select the app's adopted
+volume and expose separate internal/USB readings in Home Assistant. Existing
+free-space entities and recovery checks follow the configured volume.

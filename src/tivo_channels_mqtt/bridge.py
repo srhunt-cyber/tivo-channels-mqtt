@@ -104,6 +104,10 @@ class Poller:
         ip, name = device['ip'],device['name']
         state, raw = {},{}
         api_ok, adb_ok, free = False,False,None
+        path = device.get('storage_path', '/data')
+        disk = dict(internal_free_mib=None, usb_free_gib=None, usb_total_gib=None,
+                    usb_used_percent=None, storage_location='Internal' if path == '/data' else 'USB',
+                    storage_path=path)
         policy = self.policies[device['id']]
         errors = []
         try:
@@ -121,7 +125,18 @@ class Poller:
                     storage.connect(ip)
                     free = storage.free_mib(ip)
                 adb_ok = True
+                disk['internal_free_mib'] = round(free, 1)
+                if path != '/data':
+                    free = None
+                    try:
+                        usb = storage.adopted_stats(ip, path)
+                        free = usb.pop('free_mib')
+                        disk.update({key: round(value, 2) for key, value in usb.items()})
+                    except Exception as error:
+                        errors.append('Storage: ' + str(error))
+                        disk['storage_location'] = 'USB missing or unreadable'
             except Exception as error:
+                free = None
                 errors.append('ADB: ' + str(error))
         now = time.time()
         ready = policy.observe(raw,free,now)
@@ -134,7 +149,8 @@ class Poller:
             try:
                 options = SimpleNamespace(threshold=self.config['recovery']['threshold_mib'],
                                           rearm=self.config['recovery']['rearm_mib'],
-                                          restart_fallback=self.config['recovery']['restart_fallback'])
+                                          restart_fallback=self.config['recovery']['restart_fallback'],
+                                          storage_path=path)
                 attempted, recovered = storage.recover(ip,name,storage.channel(raw),options)
                 policy.finish(attempted,recovered)
             except Exception:
@@ -151,16 +167,24 @@ class Poller:
                 api_ok = False
                 errors.append('API after recovery: ' + str(error))
             try:
-                free = storage.free_mib(ip)
+                disk['internal_free_mib'] = round(storage.free_mib(ip), 1)
+                free = disk['internal_free_mib']
+                if path != '/data':
+                    usb = storage.adopted_stats(ip, path)
+                    free = usb.pop('free_mib')
+                    disk.update({key: round(value, 2) for key, value in usb.items()})
                 adb_ok = True
             except Exception as error:
                 free,adb_ok = None,False
+                disk.update(usb_free_gib=None, usb_total_gib=None, usb_used_percent=None)
                 errors.append('ADB after recovery: ' + str(error))
+        state.update(disk)
         state.update(
             free_mib=round(free,1) if free is not None else None,
             low_storage=free is not None and free < self.config['recovery']['threshold_mib'],
             recovery_enabled=enabled,
-            recovery_status=('Monitor only' if not enabled else
+            recovery_status=('Storage unavailable' if free is None else
+                             'Monitor only' if not enabled else
                              'Recovery latched' if not policy.armed else
                              'Rate limited' if policy.history and (
                                  len(policy.history) >= self.config['recovery']['max_resets_per_hour'] or

@@ -55,7 +55,34 @@ def parse_free_mib(output):
     return candidates[0]
 
 
-def free_mib(ip):
+def validate_storage_path(path):
+    if not isinstance(path, str) or (path != '/data' and not re.fullmatch(r'/mnt/expand/[A-Za-z0-9-]+', path)):
+        raise ValueError('storage_path must be /data or /mnt/expand/<volume-id>')
+    return path
+
+
+def adopted_stats(ip, path):
+    """Require an exact mounted adopted volume; never accept a parent filesystem."""
+    validate_storage_path(path)
+    output = adb(ip, 'shell', 'df', '-k', path)
+    rows = []
+    for line in output.splitlines():
+        match = re.search(r'(?<!\S)(\d+)\s+(\d+)\s+(\d+)\s+\d+%\s+(.+)$', line)
+        if match and match[4].strip() == path:
+            total, used, free = map(int, match.group(1, 2, 3))
+            if total > 0 and used <= total and free <= total:
+                rows.append({'free_mib': free / 1024, 'usb_free_gib': free / 1048576,
+                             'usb_total_gib': total / 1048576,
+                             'usb_used_percent': used * 100 / total})
+    if len(rows) != 1:
+        raise RuntimeError('Configured USB storage missing or unreadable: ' + path)
+    return rows[0]
+
+
+def free_mib(ip, path='/data'):
+    validate_storage_path(path)
+    if path != '/data':
+        return adopted_stats(ip, path)['free_mib']
     return parse_free_mib(adb(ip, 'shell', 'df', '-k', '/data'))
 
 
@@ -119,7 +146,7 @@ def restart_app(ip, room):
 def recover(ip, room, saved_channel, args):
     """Return (attempted, restored_free_space). None free-space means failure."""
     current = api(ip)
-    before = free_mib(ip)
+    before = free_mib(ip, getattr(args, 'storage_path', '/data'))
     if not live_playing(current) or channel(current) != saved_channel or before >= args.threshold:
         log(room, 'State/channel/space changed; cancelling reset')
         return False, None
@@ -137,11 +164,11 @@ def recover(ip, room, saved_channel, args):
             restore = False
             log(room, 'Playback changed or stop was not confirmed; no restart/retune')
             return True, None
-        after = free_mib(ip)
+        after = free_mib(ip, getattr(args, 'storage_path', '/data'))
         if after < args.rearm and args.restart_fallback:
             restart_app(ip, room)
             time.sleep(2)
-            after = free_mib(ip)
+            after = free_mib(ip, getattr(args, 'storage_path', '/data'))
     except Exception as error:
         log(room, 'Recovery warning: ' + str(error))
     finally:
