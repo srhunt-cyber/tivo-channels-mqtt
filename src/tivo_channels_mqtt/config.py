@@ -27,6 +27,9 @@ def load(path):
     config.setdefault('poll_seconds',15)
     positive(config['poll_seconds'],'poll_seconds')
     config.setdefault('adb_enabled',True)
+    config.setdefault('accessibility_watchdog',True)
+    config.setdefault('accessibility_check_seconds',300)
+    positive(config['accessibility_check_seconds'],'accessibility_check_seconds',15)
     manual = config.setdefault('manual_control', {'enabled': False})
     if not isinstance(manual, dict) or type(manual.get('enabled', False)) is not bool:
         raise ValueError('manual_control.enabled must be true or false')
@@ -39,7 +42,7 @@ def load(path):
         raise ValueError('low_readings and max_resets_per_hour must be integers')
     if recovery.get('enabled') and not config['adb_enabled']:
         raise ValueError('Recovery requires adb_enabled')
-    for section, field in ((config,'adb_enabled'),(recovery,'enabled'),(recovery,'restart_fallback'),(mqtt,'tls')):
+    for section, field in ((config,'adb_enabled'),(config,'accessibility_watchdog'),(recovery,'enabled'),(recovery,'restart_fallback'),(mqtt,'tls')):
         if type(section.get(field,False)) is not bool:
             raise ValueError(field + ' must be true or false')
     ids, ips = set(), set()
@@ -57,6 +60,8 @@ def load(path):
             raise ValueError('Device name required')
         if type(device.get('recovery_enabled',False)) is not bool:
             raise ValueError('device.recovery_enabled must be true or false')
+        if type(device.get('button_detector_enabled',True)) is not bool:
+            raise ValueError('device.button_detector_enabled must be true or false')
     # Resolve relative state storage against the configuration directory, not cwd.
     directory = Path(config.get('state_dir','state')).expanduser()
     config['state_dir'] = str(directory if directory.is_absolute() else Path(path).resolve().parent / directory)

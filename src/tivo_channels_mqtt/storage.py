@@ -126,6 +126,68 @@ def launch_component(ip):
     return components[-1]
 
 
+A11Y_SERVICE_CLASS = 'com.getchannels.android.RemoteButtonAccessibilityService'
+A11Y_SERVICES = tuple(p + '/' + A11Y_SERVICE_CLASS for p in PACKAGES)
+
+
+def button_detector_component(ip):
+    """Resolve the installed Channels accessibility service component."""
+    installed = adb(ip, 'shell', 'pm', 'list', 'packages').splitlines()
+    package = next((p for p in PACKAGES if 'package:' + p in installed), PACKAGES[0])
+    return package + '/' + A11Y_SERVICE_CLASS
+
+
+def check_button_detector(ip):
+    """Return dict with enabled, in_settings, bound, crashed, services, healthy."""
+    a11y_enabled = adb(ip, 'shell', 'settings', 'get', 'secure', 'accessibility_enabled').strip()
+    raw_services = adb(ip, 'shell', 'settings', 'get', 'secure', 'enabled_accessibility_services').strip()
+    dumpsys_out = adb(ip, 'shell', 'dumpsys', 'accessibility')
+    services = [
+        s.strip() for s in raw_services.split(':')
+        if s.strip() and s.strip().lower() != 'null'
+    ]
+    in_settings = any(s in services for s in A11Y_SERVICES)
+    bound = 'Channels Button Detector' in dumpsys_out or any(
+        s in dumpsys_out.split('Bound services:')[-1].split('Enabled services:')[0]
+        for s in A11Y_SERVICES
+    ) if 'Bound services:' in dumpsys_out else False
+    crashed_section = dumpsys_out.split('Crashed services:')[-1].split('Client list')[0] if 'Crashed services:' in dumpsys_out else ''
+    crashed = any(s in crashed_section for s in A11Y_SERVICES)
+    return {
+        'accessibility_enabled': a11y_enabled == '1',
+        'in_settings': in_settings,
+        'bound': bound,
+        'crashed': crashed,
+        'services': services,
+        'healthy': a11y_enabled == '1' and in_settings and bound and not crashed,
+    }
+
+
+def ensure_button_detector(ip, room=None):
+    """Verify Channels Button Detector accessibility service is enabled and bound; restore if needed."""
+    status = check_button_detector(ip)
+    if status['healthy']:
+        return 'Enabled'
+    target = button_detector_component(ip)
+    if room:
+        log(room, 'Restoring Channels Button Detector accessibility service (' + target + ')')
+    other_services = [s for s in status['services'] if s not in A11Y_SERVICES]
+    # If listed in settings but unbound or crashed, briefly clear so Android AccessibilityManager rebinds cleanly
+    if status['in_settings'] and (not status['bound'] or status['crashed']):
+        if other_services:
+            adb(ip, 'shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(other_services))
+        else:
+            adb(ip, 'shell', 'settings', 'delete', 'secure', 'enabled_accessibility_services')
+        time.sleep(0.3)
+    updated_services = other_services + [target]
+    adb(ip, 'shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(updated_services))
+    adb(ip, 'shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1')
+    verify = check_button_detector(ip)
+    if not verify['accessibility_enabled'] or not verify['in_settings']:
+        raise RuntimeError('Failed to restore Channels Button Detector accessibility setting')
+    return 'Restored'
+
+
 def restart_app(ip, room):
     component = launch_component(ip)
     package = component.split('/')[0]
@@ -137,6 +199,10 @@ def restart_app(ip, room):
         time.sleep(1)
         try:
             api(ip)
+            try:
+                ensure_button_detector(ip, room)
+            except Exception:
+                pass
             return
         except Exception:
             pass

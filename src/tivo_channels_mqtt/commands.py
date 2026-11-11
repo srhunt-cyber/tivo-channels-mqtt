@@ -141,6 +141,11 @@ class Commands:
             self.report(key, 'Android restarted; launching Channels')
             storage.adb(ip, 'shell', 'am', 'start', '-n', component)
             self.wait_for(lambda: storage.api(ip).get('status') in ('playing', 'paused', 'stopped'), 15)
+            if self.config.get('accessibility_watchdog', True) and device.get('button_detector_enabled', True):
+                try:
+                    storage.ensure_button_detector(ip, device['name'])
+                except Exception as exc:
+                    LOG.warning('%s button detector restore after reboot failed: %s', key, exc)
         if number:
             current = storage.api(ip)
             # Respect a different show selected using the physical remote meanwhile.

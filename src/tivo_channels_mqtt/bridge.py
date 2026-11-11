@@ -88,6 +88,8 @@ class Poller:
         self.commands = commands
         self.config, self.publisher = config,publisher
         self.policies = {d['id']:RecoveryPolicy(d,config['recovery'],config['state_dir']) for d in config['devices']}
+        self.a11y_last_check = {}
+        self.a11y_status = {}
 
     def poll(self, device):
         if self.commands is None:
@@ -126,6 +128,19 @@ class Poller:
                     free = storage.free_mib(ip)
                 adb_ok = True
                 disk['internal_free_mib'] = round(free, 1)
+                a11y_on = self.config.get('accessibility_watchdog', True) and device.get('button_detector_enabled', True)
+                if not a11y_on:
+                    self.a11y_status[device['id']] = 'Disabled'
+                elif not ip.startswith('192.0.2.') and time.monotonic() - self.a11y_last_check.get(device['id'], -1e9) >= self.config.get('accessibility_check_seconds', 300):
+                    try:
+                        res = storage.ensure_button_detector(ip, name)
+                        self.a11y_status[device['id']] = res
+                        self.a11y_last_check[device['id']] = time.monotonic()
+                        if res == 'Restored':
+                            LOG.info('%s: Channels Button Detector accessibility service was off/unbound and has been restored', name)
+                    except Exception as error:
+                        self.a11y_status[device['id']] = 'Error'
+                        errors.append('Accessibility: ' + str(error))
                 if path != '/data':
                     free = None
                     try:
@@ -190,6 +205,7 @@ class Poller:
                                  len(policy.history) >= self.config['recovery']['max_resets_per_hour'] or
                                  now-policy.history[-1] < self.config['recovery']['cooldown_seconds']) else
                              'Watching'),
+            button_detector=self.a11y_status.get(device['id'], 'Unavailable') if adb_ok else 'Unavailable',
             last_recovery=policy.last_event, api_available=api_ok, adb_available=adb_ok,
             errors=errors)
         self.publisher.publish(device,state,api_ok,adb_ok)

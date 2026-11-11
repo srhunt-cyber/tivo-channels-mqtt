@@ -22,6 +22,7 @@ FIELDS = {
     'usb_used_percent':('USB used','mdi:usb-flash-drive','adb'),
     'storage_location':('Channels storage','mdi:folder','adb'),
     'recovery_status':('Storage watchdog','mdi:shield-refresh','api'),
+    'button_detector':('Button detector','mdi:gesture-tap-button','adb'),
 }
 
 
@@ -51,7 +52,7 @@ def discovery(config, device, key):
         result['value_template'] = '{{ value_json.' + key + ' if value_json.' + key + ' is not none else none }}'
     if key == 'storage_location':
         result['entity_category'] = 'diagnostic'
-    if key == 'recovery_status':
+    if key in ('recovery_status', 'button_detector'):
         result['entity_category'] = 'diagnostic'
     return result
 
