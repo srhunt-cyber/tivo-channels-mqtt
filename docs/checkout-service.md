@@ -1,8 +1,12 @@
 # Run an existing checkout as a service
 
+The public name is **Channels Android MQTT**. The repository, checkout directory,
+package command, and systemd service still use `tivo-channels-mqtt`. Keep those
+names when updating; this documentation change requires no installation migration.
+
 Use this method when the bridge already works in a terminal and lives under your login user's home/code directory. It installs a system-level service that starts at boot, runs as that same login user, and keeps working after SSH disconnects.
 
-It uses the checkout's existing `.venv`, `config.json`, state directory and the login user's existing `~/.android` ADB keys. It connects to the same local ADB server on port 5037, so previously authorized TiVos should not require another authorization. This is an alternative to the dedicated account and `/opt` installation in the main README; use one method at a time.
+It uses the checkout's existing `.venv`, `config.json`, state directory and the login user's existing `~/.android` ADB keys. It connects to the same local ADB server on port 5037, so previously authorized Android devices should not require another authorization. This is an alternative to the dedicated account and `/opt` installation in the main README; use one method at a time.
 
 1. Stop the foreground bridge with **Control-C**.
 2. In the checkout, run:
@@ -52,4 +56,4 @@ sudo journalctl -u tivo-channels-mqtt -n 60 --no-pager
 ```
 
 For the Button Detector update, perform the [live verification](accessibility-watchdog.md#live-verification)
-on Master, then check the diagnostic sensors for the other configured rooms.
+on an unoccupied device (Master in the original installation), then check the diagnostic sensors for the other configured rooms.

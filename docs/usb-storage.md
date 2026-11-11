@@ -1,5 +1,11 @@
 # Adopted USB storage
 
+**Channels Android MQTT** can monitor a configured adopted volume on an Android TV
+device. This workflow was developed for TiVo Stream 4K; USB/adopted-storage support
+and permission to move Channels must be verified on other devices. The bridge does
+not enable adopted storage or move the app. Existing `tivo` sensor IDs and example
+labels remain unchanged for compatibility.
+
 After moving Channels to an adopted USB volume, set that device's `storage_path`
 to its exact `/mnt/expand/<volume-id>` mount. The default remains `/data`.
 Do not select an arbitrary attached drive: confirm Channels was moved to it.

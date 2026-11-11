@@ -1,6 +1,8 @@
 # Channels Android storage notes
 
-TiVo Stream 4K devices have limited usable internal storage. The Channels live-TV buffer can consume much more space than the app installation itself. Low-storage warnings can interrupt viewing and require manual dismissal.
+Android TV devices can have limited usable internal storage; TiVo Stream 4K is the original reference device for Channels Android MQTT. The Channels live-TV buffer can consume much more space than the app installation itself. Low-storage warnings can interrupt viewing and require manual dismissal.
+
+The device-specific observations below come from TiVo use and reports; they are not universal Android storage limits. Select thresholds for each device's actual storage capacity and behavior.
 
 Removing other apps can provide headroom, but is not proof that the issue is fixed. Measure available /data space before and during long viewing sessions. The operating system warning reportedly appearing around 330 MB is an observation to verify on the target device. The watchdog's 600 MiB trigger and 900 MiB rearm target are provisional configurable allowances, not official Channels requirements.
 

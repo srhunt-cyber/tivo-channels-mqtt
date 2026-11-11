@@ -1,7 +1,12 @@
 # Channels Button Detector watchdog
 
+Part of **Channels Android MQTT**. Designed for Android TV devices running Channels;
+the live reference device is TiVo Stream 4K. Accessibility behavior and permissions
+on other Android devices have not been verified. Existing `tivo` entity IDs are
+retained for compatibility; see the [project naming notes](../README.md#project-name-and-compatibility).
+
 The watchdog uses each device's existing `ip` and `id` in config.json. It covers
-all configured TiVos without hard-coded room addresses. It is independent of
+all configured Android TV devices without hard-coded room addresses. It is independent of
 storage recovery and manual playback controls. No storage threshold is changed.
 
 ## What it checks and changes
@@ -54,17 +59,18 @@ for accessibility warnings and the next periodic sensor reading separately.
 
 After updating the existing checkout and restarting the bridge:
 
-1. Confirm the service and MQTT connection in the journal. Each of the three
+1. Confirm the service and MQTT connection in the journal. Each of your
    configured devices should show an Enabled or Restored detector sensor after
    its first successful ADB poll. Existing HA entity naming conflicts can add a suffix.
-2. In an unoccupied room (Master was the original test), turn off only Channels
+2. In an unoccupied room (Master in the original TiVo test installation), turn off only Channels
    Button Detector in Android Accessibility. Leave the bridge running.
 3. Wait one configured check interval plus poll/ADB time. Confirm the journal
    records a verified restoration and the sensor becomes Restored.
 4. Run `adb -s DEVICE_IP:5555 shell dumpsys accessibility`. Confirm Channels Button
    Detector is in Bound services and not Crashed services. Test the real Guide
    button, then confirm the next check reports Enabled.
-5. Check Kitchen and Florence's sensors, and repeat the physical-button test as
+5. Check the remaining devices' sensors (Kitchen and Florence in the original
+   installation), and repeat the physical-button test as
    convenient. Use the current IPs in local config, not old remembered addresses.
 
 If it reports Error, inspect the journal and dump rather than repeatedly
@@ -78,4 +84,4 @@ Accessibility tests simulate ADB and cover missing settings, preserving another
 service, delayed binding, persistent unbound/crashed failure, labels outside the
 bound section, missing packages, all three device polls, failed-attempt spacing,
 and opt-outs. Existing playback, storage, MQTT and maintenance regressions remain
-in the same suite. Tests do not contact live TiVos or a broker.
+in the same suite. Tests do not contact live devices or a broker.

@@ -1,6 +1,16 @@
-# TiVo Channels MQTT
+# Channels Android MQTT
 
-A small service for an always-on Linux host or VM. It supplements Home Assistant's Android media-player entities with information from Channels itself, and monitors the TiVo Stream 4K's limited internal storage.
+Channels playback and storage monitoring for Android TV devices, with Home Assistant MQTT integration, remote-button accessibility recovery, and optional maintenance controls.
+
+Runs on an always-on Linux host or VM and supplements Home Assistant's Android media-player entities with information from Channels itself.
+
+**Designed for Android TV devices running Channels; tested on TiVo Stream 4K.** Other Android devices and firmware versions have not been verified. Channels API access, network ADB, accessibility permissions, and storage layout must be checked on each device.
+
+## Project name and compatibility
+
+The public project name is **Channels Android MQTT**. The existing repository URL and package/command name (`tivo-channels-mqtt`), Python module (`tivo_channels_mqtt`), installation paths, systemd service, MQTT topics/discovery IDs, and Home Assistant entity IDs retain their original names for compatibility. Existing display labels and TiVo-based dashboard examples are also retained. These names do not restrict the bridge to TiVo hardware.
+
+No rename or migration is needed on an existing installation. Continue using the commands below and keep your local configuration. A repository/package rename is deferred until a separate migration is documented.
 
 **Monitoring and Button Detector self-healing are enabled by default; playback/storage recovery remains opt-in.** Manual ADB restoration has been verified on a TiVo. Automated tests simulate the bridge, devices and broker; deployment still needs the live checks below.
 
@@ -18,7 +28,8 @@ These are **streaming-player** states. They do not establish whether the televis
 ## Requirements
 
 - Linux with systemd; Python 3.9+ and Android platform-tools (`adb`).
-- Network access from the VM to the MQTT broker and each TiVo on TCP 57000 (Channels API) and 5555 (the existing authorized network ADB setup).
+- Network access from the VM to the MQTT broker and each Android TV device on TCP 57000 (Channels API) and 5555 (the existing authorized network ADB setup).
+- The current ADB client targets `<device-ip>:5555`; pairing-only or changing-port wireless debugging is not automatically configured by this bridge.
 - Channels launched at least once; the API may be available in the background on Android.
 - Home Assistant connected to the same MQTT broker, with discovery enabled.
 
@@ -50,7 +61,7 @@ sudoedit /etc/tivo-channels-mqtt/mqtt.env
 
 The public repository can be cloned without GitHub authentication.
 
-In `config.json`, set the broker host and each TiVo address, then set:
+In `config.json`, set the broker host and each device address, then set:
 
 ```json
 "state_dir": "/var/lib/tivo-channels-mqtt"
@@ -58,7 +69,7 @@ In `config.json`, set the broker host and each TiVo address, then set:
 
 Put your broker username/password only in `mqtt.env`, using the environment variable names in the example. `mqtt.tls=true` enables verified TLS using system trust or optional `mqtt.ca_certs`. Keep TLS enabled if your broker requires it; the default port 1883 is for a trusted LAN broker without TLS.
 
-Check configuration (this does not connect to the TiVos or broker):
+Check configuration (this does not connect to the devices or broker):
 
 ```bash
 sudo .venv/bin/tivo-channels-mqtt --config /etc/tivo-channels-mqtt/config.json --check-config
@@ -72,7 +83,7 @@ sudo -u tivo-channels env HOME=/var/lib/tivo-channels-mqtt ADB_SERVER_SOCKET=tcp
 sudo -u tivo-channels env HOME=/var/lib/tivo-channels-mqtt ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 adb connect 192.0.2.103:5555
 ```
 
-Accept the debugging authorization on each TiVo when prompted. This step requires the existing network-debugging setup; do not expose ADB to the Internet. If storage monitoring is not needed yet, set `adb_enabled=false` and leave recovery disabled; Channels/MQTT reporting works without ADB.
+Accept the debugging authorization on each device when prompted. This step requires the existing network-debugging setup; do not expose ADB to the Internet. If storage monitoring is not needed yet, set `adb_enabled=false` and leave recovery disabled; Channels/MQTT reporting works without ADB.
 
 Install and start the service:
 
@@ -115,7 +126,7 @@ Defaults:
 
 The reported Android warning near 330 MB is an observation to verify, not a documented guarantee. These thresholds are provisional and configurable. `/data` free space is total device storage; this does not prove which app consumed it.
 
-Recovery remembers the live channel, rechecks status/free space, stops playback, measures storage reclaimed, optionally force-stops and relaunches Channels, and retunes/checks the saved channel. It never clears application data or reboots the TiVo. Recovery history and its failure latch are saved before changing playback and survive service restarts.
+Recovery remembers the live channel, rechecks status/free space, stops playback, measures storage reclaimed, optionally force-stops and relaunches Channels, and retunes/checks the saved channel. It never clears application data or reboots the device. Recovery history and its failure latch are saved before changing playback and survive service restarts.
 
 **The picture briefly stops and returns to LIVE. Rewind history and any time-shifted viewing position are lost.** Paused streams and recordings are intentionally excluded. Existing HA pause-guard logic can remain, but do not run the older standalone storage guard alongside this service. Recovery may act if Channels is playing while the TV screen is off; no TV power is queried, and retuning can have device-specific CEC effects.
 
@@ -159,7 +170,7 @@ Tests simulate Channels/ADB/MQTT; they do not replace a long live-session trial 
 ## Manual maintenance controls
 
 Optional MQTT buttons now support restarting a live stream, restarting the Channels
-app, and rebooting a TiVo, with verified results and per-device progress. Set
+app, and rebooting an Android TV device, with verified results and per-device progress. Set
 `manual_control.enabled` to `true` to opt in; automatic recovery remains unchanged.
 See [manual controls](docs/manual-controls.md) and the hold-to-confirm
 [System Health example](examples/system_health_tivo.yaml).
@@ -184,7 +195,7 @@ When `adb_enabled` and `accessibility_watchdog` are enabled (default `true`):
 
 - `accessibility_watchdog` (root boolean, default `true`): Enable or disable the accessibility check globally.
 - `accessibility_check_seconds` (root number, default `300`, minimum `15`): Interval in seconds between periodic ADB accessibility attempts per device, including failed attempts.
-- `button_detector_enabled` (per-device boolean, default `true`): Enable or disable the accessibility watchdog for a specific TiVo device.
+- `button_detector_enabled` (per-device boolean, default `true`): Enable or disable the accessibility watchdog for a specific device.
 
 
 ### Verification and deployment

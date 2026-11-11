@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tivo-channels-mqtt"
 version = "0.1.0"
-description = "Channels playback and TiVo storage telemetry for MQTT/Home Assistant, with optional buffer recovery"
+description = "Channels Android MQTT: Android TV playback and storage monitoring, accessibility recovery, and optional maintenance controls"
 requires-python = ">=3.9"
 dependencies = ["paho-mqtt>=2.1,<3"]
 

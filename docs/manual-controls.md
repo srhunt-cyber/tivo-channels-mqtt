@@ -1,11 +1,16 @@
 # Manual maintenance and System Health dashboard
 
+These **Channels Android MQTT** controls target Android TV devices running Channels.
+They have been developed and tested using TiVo Stream 4K; verify ADB and restart
+behavior on other devices before relying on maintenance controls. Existing button
+labels, entity IDs, and example filenames retain their TiVo names for compatibility.
+
 Manual control is independent of the storage watchdog. Manual playback controls remain disabled until `manual_control.enabled` is explicitly set to true.
 This setting does not enable automatic storage recovery.
 
 The bridge discovers three MQTT buttons per device, two connectivity sensors,
 a last-command sensor (with progress, timestamp, before/after free space), and
-bridge connection/uptime entities. Existing six sensor IDs are unchanged.
+bridge connection/uptime entities. Existing sensor IDs are unchanged.
 
 ## Actions
 
@@ -13,7 +18,7 @@ bridge connection/uptime entities. Existing six sensor IDs are unchanged.
   verifies stopped, retunes the exact channel, verifies playing. Jumps to live.
 * Restart Channels app: resolves its launcher before force-stopping, starts it,
   waits for its API and restores a freshly known live channel when available.
-* Reboot TiVo: resolves the launcher before reboot, verifies a changed Android
+* Reboot device (currently labeled **Reboot TiVo**): resolves the launcher before reboot, verifies a changed Android
   boot ID AND boot-completed, launches Channels, restores known live playback.
 
 No recording position or stale/previous channel is inferred. If the API was down
@@ -63,7 +68,7 @@ ADB reconnection after boot must be verified on your device.
   do not look current. Polling restores it after completion. Progress remains visible.
 * MQTT broker access permits device control when enabled. Use the same trusted
   broker/authentication/ACL setup used for other home-control commands.
-* A broker or bridge outage cannot deliver maintenance commands. A TiVo with no
+* A broker or bridge outage cannot deliver maintenance commands. An Android device with no
   functioning ADB cannot be software-rebooted; physical power recovery is separate.
 
 
