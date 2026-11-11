@@ -169,3 +169,19 @@ See [manual controls](docs/manual-controls.md) and the hold-to-confirm
 See [USB storage monitoring](docs/usb-storage.md) to select the app's adopted
 volume and expose separate internal/USB readings in Home Assistant. Existing
 free-space entities and recovery checks follow the configured volume.
+
+## Channels Button Detector Accessibility Watchdog
+
+Android TV and TiVo Stream 4K devices can periodically unbind or disable the **Channels Button Detector** accessibility service (`com.getchannels.android.RemoteButtonAccessibilityService`) after app updates, `am force-stop` restarts, or reboots.
+
+When `adb_enabled` and `accessibility_watchdog` are enabled (default `true`):
+- **Periodic Check & Self-Heal:** Every `accessibility_check_seconds` (default `300` seconds) and on bridge startup, the bridge queries `accessibility_enabled`, `enabled_accessibility_services`, and `dumpsys accessibility` (`Bound services:`).
+- **Non-Destructive Restore:** If the service is missing, unbound, or crashed, the bridge restores `RemoteButtonAccessibilityService` while preserving any other enabled accessibility services on the device.
+- **Post-Maintenance Hook:** Manual `restart_app` and `reboot` commands automatically verify and restore the accessibility binding as soon as the Channels app comes back online.
+- **Home Assistant Diagnostic Sensor:** Publishes `sensor.<device_id>_tivo_mqtt_button_detector` (`Enabled`, `Restored`, `Disabled`, `Error`, or `Unavailable`).
+
+### Optional Configuration Keys
+
+- `accessibility_watchdog` (root boolean, default `true`): Enable or disable the accessibility check globally.
+- `accessibility_check_seconds` (root integer, default `300`, minimum `15`): Interval in seconds between periodic ADB accessibility checks per device.
+- `button_detector_enabled` (per-device boolean, default `true`): Enable or disable the accessibility watchdog for a specific TiVo device.

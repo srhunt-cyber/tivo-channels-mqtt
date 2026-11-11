@@ -26,22 +26,27 @@
       "id": "kitchen",
       "name": "Kitchen TiVo",
       "ip": "192.0.2.101",
-      "recovery_enabled": false
+      "recovery_enabled": false,
+      "button_detector_enabled": true
     },
     {
       "id": "master",
       "name": "Bedroom TiVo",
       "ip": "192.0.2.102",
-      "recovery_enabled": false
+      "recovery_enabled": false,
+      "button_detector_enabled": true
     },
     {
       "id": "guest_bedroom",
       "name": "Guest Bedroom TiVo",
       "ip": "192.0.2.103",
-      "recovery_enabled": false
+      "recovery_enabled": false,
+      "button_detector_enabled": true
     }
   ],
   "manual_control": {
     "enabled": false
-  }
+  },
+  "accessibility_watchdog": true,
+  "accessibility_check_seconds": 300
 }
