@@ -1,5 +1,6 @@
 """ADB / Channels client API and bounded buffer recovery helpers."""
 import json
+import logging
 import re
 import subprocess
 import time
@@ -133,8 +134,27 @@ A11Y_SERVICES = tuple(p + '/' + A11Y_SERVICE_CLASS for p in PACKAGES)
 def button_detector_component(ip):
     """Resolve the installed Channels accessibility service component."""
     installed = adb(ip, 'shell', 'pm', 'list', 'packages').splitlines()
-    package = next((p for p in PACKAGES if 'package:' + p in installed), PACKAGES[0])
+    package = next((p for p in PACKAGES if 'package:' + p in installed), None)
+    if package is None:
+        raise RuntimeError('Channels package not installed; accessibility settings unchanged')
     return package + '/' + A11Y_SERVICE_CLASS
+
+
+def accessibility_section(output, label):
+    """Read only the named brace-delimited section, including nested braces."""
+    match = re.search(re.escape(label) + r'\s*:\s*\{', output)
+    if not match:
+        return ''
+    start = match.end()
+    depth = 1
+    for index in range(start, len(output)):
+        if output[index] == '{':
+            depth += 1
+        elif output[index] == '}':
+            depth -= 1
+            if depth == 0:
+                return output[start:index]
+    raise RuntimeError('Incomplete accessibility dump: ' + label)
 
 
 def check_button_detector(ip):
@@ -147,12 +167,12 @@ def check_button_detector(ip):
         if s.strip() and s.strip().lower() != 'null'
     ]
     in_settings = any(s in services for s in A11Y_SERVICES)
-    bound = 'Channels Button Detector' in dumpsys_out or any(
-        s in dumpsys_out.split('Bound services:')[-1].split('Enabled services:')[0]
-        for s in A11Y_SERVICES
-    ) if 'Bound services:' in dumpsys_out else False
-    crashed_section = dumpsys_out.split('Crashed services:')[-1].split('Client list')[0] if 'Crashed services:' in dumpsys_out else ''
-    crashed = any(s in crashed_section for s in A11Y_SERVICES)
+    bound_section = accessibility_section(dumpsys_out, 'Bound services')
+    bound = 'label=Channels Button Detector' in bound_section or any(
+        s in bound_section for s in A11Y_SERVICES)
+    crashed_section = accessibility_section(dumpsys_out, 'Crashed services')
+    crashed = ('label=Channels Button Detector' in crashed_section or
+               any(s in crashed_section for s in A11Y_SERVICES))
     return {
         'accessibility_enabled': a11y_enabled == '1',
         'in_settings': in_settings,
@@ -182,13 +202,29 @@ def ensure_button_detector(ip, room=None):
     updated_services = other_services + [target]
     adb(ip, 'shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(updated_services))
     adb(ip, 'shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1')
-    verify = check_button_detector(ip)
-    if not verify['accessibility_enabled'] or not verify['in_settings']:
-        raise RuntimeError('Failed to restore Channels Button Detector accessibility setting')
-    return 'Restored'
+    # Binding is asynchronous; writing settings alone is not proof of recovery.
+    for attempt in range(4):
+        if attempt:
+            time.sleep(1)
+        verify = check_button_detector(ip)
+        if verify['healthy']:
+            return 'Restored'
+    raise RuntimeError('Channels Button Detector not healthy after restore '
+                       '(enabled=%s, listed=%s, bound=%s, crashed=%s)' % (
+                           verify['accessibility_enabled'], verify['in_settings'],
+                           verify['bound'], verify['crashed']))
 
 
-def restart_app(ip, room):
+def restore_button_detector_after_restart(ip, room):
+    """Accessibility failure must be visible without preventing live retuning."""
+    try:
+        ensure_button_detector(ip, room)
+    except Exception as error:
+        logging.getLogger(__name__).warning(
+            '%s: Channels reachable, but Button Detector restore failed: %s', room, error)
+
+
+def restart_app(ip, room, restore_button_detector=True):
     component = launch_component(ip)
     package = component.split('/')[0]
     log(room, 'Trying Channels app restart; settings and app data are retained')
@@ -199,10 +235,8 @@ def restart_app(ip, room):
         time.sleep(1)
         try:
             api(ip)
-            try:
-                ensure_button_detector(ip, room)
-            except Exception:
-                pass
+            if restore_button_detector:
+                restore_button_detector_after_restart(ip, room)
             return
         except Exception:
             pass
@@ -232,7 +266,7 @@ def recover(ip, room, saved_channel, args):
             return True, None
         after = free_mib(ip, getattr(args, 'storage_path', '/data'))
         if after < args.rearm and args.restart_fallback:
-            restart_app(ip, room)
+            restart_app(ip, room, restore_button_detector=getattr(args, 'restore_button_detector', True))
             time.sleep(2)
             after = free_mib(ip, getattr(args, 'storage_path', '/data'))
     except Exception as error:
@@ -262,4 +296,5 @@ def recover(ip, room, saved_channel, args):
     if after is not None:
         log(room, 'Free space after cleanup: %.0f MiB (reclaimed %.0f MiB)' % (after, after-before))
     return True, after if success else None
+
 

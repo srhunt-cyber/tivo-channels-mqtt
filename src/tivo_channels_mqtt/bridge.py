@@ -131,7 +131,8 @@ class Poller:
                 a11y_on = self.config.get('accessibility_watchdog', True) and device.get('button_detector_enabled', True)
                 if not a11y_on:
                     self.a11y_status[device['id']] = 'Disabled'
-                elif not ip.startswith('192.0.2.') and time.monotonic() - self.a11y_last_check.get(device['id'], -1e9) >= self.config.get('accessibility_check_seconds', 300):
+                elif time.monotonic() - self.a11y_last_check.get(device['id'], -1e9) >= self.config.get('accessibility_check_seconds', 300):
+                    self.a11y_last_check[device['id']] = time.monotonic()
                     try:
                         res = storage.ensure_button_detector(ip, name)
                         self.a11y_status[device['id']] = res
@@ -165,7 +166,9 @@ class Poller:
                 options = SimpleNamespace(threshold=self.config['recovery']['threshold_mib'],
                                           rearm=self.config['recovery']['rearm_mib'],
                                           restart_fallback=self.config['recovery']['restart_fallback'],
-                                          storage_path=path)
+                                          storage_path=path,
+                                          restore_button_detector=(self.config.get('accessibility_watchdog', True)
+                                              and device.get('button_detector_enabled', True)))
                 attempted, recovered = storage.recover(ip,name,storage.channel(raw),options)
                 policy.finish(attempted,recovered)
             except Exception:
@@ -267,3 +270,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

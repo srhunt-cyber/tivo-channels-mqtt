@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def config(directory):
     data = json.loads((ROOT / 'config.example.json').read_text())
     data['mqtt']['host'] = 'localhost'
+    # Tests outside the accessibility suite isolate their own ADB behavior.
+    data['accessibility_watchdog'] = False
     data['state_dir'] = directory
     return data
 
@@ -176,3 +178,4 @@ class RecoveryTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+

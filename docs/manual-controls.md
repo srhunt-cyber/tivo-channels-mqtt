@@ -1,7 +1,6 @@
 # Manual maintenance and System Health dashboard
 
-Manual control is independent of the storage watchdog. Existing configurations
-remain monitor-only until `manual_control.enabled` is explicitly set to true.
+Manual control is independent of the storage watchdog. Manual playback controls remain disabled until `manual_control.enabled` is explicitly set to true.
 This setting does not enable automatic storage recovery.
 
 The bridge discovers three MQTT buttons per device, two connectivity sensors,
@@ -66,3 +65,15 @@ ADB reconnection after boot must be verified on your device.
   broker/authentication/ACL setup used for other home-control commands.
 * A broker or bridge outage cannot deliver maintenance commands. A TiVo with no
   functioning ADB cannot be software-rebooted; physical power recovery is separate.
+
+
+## Button Detector after maintenance
+
+When ADB, `accessibility_watchdog`, and the device's `button_detector_enabled`
+are enabled, app restarts and reboots also attempt to restore the Channels Button
+Detector. Automatic storage-recovery app restarts honor the same switches.
+Binding must be verified before recovery is called successful. A detector failure
+is logged as a warning while live-channel restoration continues; a successful
+manual playback result is not proof that accessibility recovery succeeded.
+The periodic diagnostic sensor updates on its next scheduled check.
+See [accessibility operation and live tests](accessibility-watchdog.md).

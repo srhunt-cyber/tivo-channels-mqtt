@@ -2,7 +2,7 @@
 
 A small service for an always-on Linux host or VM. It supplements Home Assistant's Android media-player entities with information from Channels itself, and monitors the TiVo Stream 4K's limited internal storage.
 
-**Monitoring is enabled; playback recovery is disabled by default.** The project has automated tests but has not been run against physical TiVos or a live broker yet.
+**Monitoring and Button Detector self-healing are enabled by default; playback/storage recovery remains opt-in.** Manual ADB restoration has been verified on a TiVo. Automated tests simulate the bridge, devices and broker; deployment still needs the live checks below.
 
 ## What it provides
 
@@ -183,5 +183,24 @@ When `adb_enabled` and `accessibility_watchdog` are enabled (default `true`):
 ### Optional Configuration Keys
 
 - `accessibility_watchdog` (root boolean, default `true`): Enable or disable the accessibility check globally.
-- `accessibility_check_seconds` (root integer, default `300`, minimum `15`): Interval in seconds between periodic ADB accessibility checks per device.
+- `accessibility_check_seconds` (root number, default `300`, minimum `15`): Interval in seconds between periodic ADB accessibility attempts per device, including failed attempts.
 - `button_detector_enabled` (per-device boolean, default `true`): Enable or disable the accessibility watchdog for a specific TiVo device.
+
+
+### Verification and deployment
+
+See [Button Detector operation and live checks](docs/accessibility-watchdog.md).
+`Restored` now means enabled, listed, bound, and not crashed, verified with up to
+four reads and one-second waits between reads. ADB calls each have a six-second
+timeout, so an unreachable device can take longer than the waits alone.
+Failed restoration reports `Error`; it does not claim that the remote works.
+The cached MQTT value describes the last check, not continuous health.
+
+Both global and per-device opt-outs apply to periodic checks, manual app restarts,
+reboots, and automatic storage-recovery app restarts. Restoration errors after
+maintenance are logged without preventing the saved live channel from retuning.
+
+No config migration is needed for existing installations. Keep your local IPs,
+credentials, USB paths and storage thresholds. For a home-directory checkout use
+[these update commands](docs/checkout-service.md); do not copy the example config
+over your working config.json.

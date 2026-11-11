@@ -121,7 +121,8 @@ class Commands:
         elif action == 'restart_app':
             self.report(key, 'Restarting Channels app')
             storage.connect(ip)
-            storage.restart_app(ip, device['name'])
+            storage.restart_app(ip, device['name'], restore_button_detector=(
+                self.config.get('accessibility_watchdog', True) and device.get('button_detector_enabled', True)))
         else:
             self.report(key, 'Preparing TiVo reboot')
             storage.connect(ip)
@@ -142,10 +143,7 @@ class Commands:
             storage.adb(ip, 'shell', 'am', 'start', '-n', component)
             self.wait_for(lambda: storage.api(ip).get('status') in ('playing', 'paused', 'stopped'), 15)
             if self.config.get('accessibility_watchdog', True) and device.get('button_detector_enabled', True):
-                try:
-                    storage.ensure_button_detector(ip, device['name'])
-                except Exception as exc:
-                    LOG.warning('%s button detector restore after reboot failed: %s', key, exc)
+                storage.restore_button_detector_after_restart(ip, device['name'])
         if number:
             current = storage.api(ip)
             # Respect a different show selected using the physical remote meanwhile.
@@ -184,3 +182,4 @@ class Commands:
         self.stopping.set()
         for thread in list(self.jobs.values()):
             thread.join(timeout=35)
+

@@ -71,13 +71,27 @@ class CommandTests(unittest.TestCase):
             self.assertFalse(any(c.kwargs.get('post') for c in api.call_args_list))
         self.assertIn('no live channel restored', self.commands.results[self.key]['status'])
 
+    def test_app_restart_passes_global_and_device_opt_out(self):
+        for global_on, device_on in [(True, True), (False, True), (True, False)]:
+            self.config['accessibility_watchdog'] = global_on
+            self.config['devices'][0]['button_detector_enabled'] = device_on
+            with patch.object(storage, 'api', return_value={'status':'stopped'}), \
+                    patch.object(storage, 'free_mib', return_value=500), patch.object(storage, 'connect'), \
+                    patch.object(storage, 'restart_app') as restart:
+                self.commands.execute(self.key, 'restart_app')
+                restart.assert_called_once_with(self.ip, self.config['devices'][0]['name'],
+                                                restore_button_detector=global_on and device_on)
+
     def test_reboot_waits_for_new_boot_then_restores(self):
+        self.config['accessibility_watchdog'] = True
         with patch.object(storage, 'api', side_effect=[live(), {'status':'stopped'}, {'status':'stopped'}, None, live()]) as api, \
                 patch.object(storage, 'free_mib', return_value=500), patch.object(storage, 'connect'), \
                 patch.object(storage, 'launch_component', return_value='com.getchannels.dvr.app/.Main'), \
                 patch.object(storage, 'adb', side_effect=['old', '', 'old', 'new', '1', '']) as adb, \
-                patch.object(self.commands, 'pause'):
+                patch.object(self.commands, 'pause'), \
+                patch.object(storage, 'restore_button_detector_after_restart') as detector:
             self.commands.execute(self.key, 'reboot')
+            detector.assert_called_once_with(self.ip, self.config['devices'][0]['name'])
             adb.assert_any_call(self.ip, 'reboot')
             api.assert_any_call(self.ip, 'play/channel/7.1', post=True)
             self.assertEqual(sum('boot_id' in str(c) for c in adb.call_args_list), 3)
@@ -163,3 +177,4 @@ class CommandTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
